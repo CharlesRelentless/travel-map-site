@@ -349,3 +349,18 @@ http://127.0.0.1:8000/index-amap.html
 - 黑卡达坂：`36.0300, 78.9800` → `36.4307, 77.5784`
 
 当前仅维护 `index-amap.html` 作为运行入口。
+
+### 2026-06-06 Open-Meteo 稳定性增强
+
+针对手机蜂窝网络下 Open-Meteo 请求频繁超时的问题：
+
+- **超时时间**：4.5 秒 → 10 秒
+- **重试次数**：0 → 2 次，每次失败后间隔 800ms 重试
+- **总等待上限**：单站点最多约 30 秒（10s × 3 次）
+- **墨迹代理回退**：不再依赖 localtunnel/Vercel 公网代理，CloudStudio 部署仅走 Open-Meteo，失败时自动回退本地估算
+
+### 2026-06-06 Vercel + localtunnel 部署探索
+
+- 创建 `api/moji.py` Vercel Serverless 函数，成功跑通墨迹代理但 `vercel.app` 域名国内被墙
+- 尝试 localtunnel 隧道映射电脑 `weather_proxy.py` 到公网，但隧道不稳定且 URL 频繁变化
+- **最终决策**：CloudStudio 版只走 Open-Meteo（超时+重试），游客回国后再考虑自定义域名方案

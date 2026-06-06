@@ -962,7 +962,7 @@
     const WEATHER_REFRESH_INTERVAL = 20 * 60 * 1000;
     const WEATHER_RISK_SCAN_INTERVAL = 60 * 1000;
     const WEATHER_ALERT_STORAGE_KEY = "travelMapWeatherAlert.v1";
-    const MOJI_PROXY_BASE = location.protocol === "file:" ? "http://127.0.0.1:8000" : "https://tired-lizards-brush.loca.lt";
+    const MOJI_PROXY_BASE = location.protocol === "file:" ? "http://127.0.0.1:8000" : "";
     const mojiRequestCache = new Map();
     let lastWeatherRiskScanAt = 0;
     const MOJI_CITY_BY_STOP = {
@@ -1347,12 +1347,22 @@
         const res = await fetch(url);
         return res.ok ? res.json() : null;
       }
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 4500);
-      try {
-        const res = await fetch(url, { signal: controller.signal });
-        return res.ok ? res.json() : null;
-      } finally { window.clearTimeout(timeout); }
+      const maxRetries = 2;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 10000);
+        try {
+          const res = await fetch(url, { signal: controller.signal });
+          if (res.ok) return res.json();
+          return null;
+        } catch (e) {
+          if (attempt === maxRetries) return null;
+          await new Promise(r => window.setTimeout(r, 800));
+        } finally {
+          window.clearTimeout(timeout);
+        }
+      }
+      return null;
     }
 
     async function fetchWeather(stop, marker, quiet) {

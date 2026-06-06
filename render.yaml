@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: travel-map-weather
+    runtime: python
+    plan: starter
+    buildCommand: python -m py_compile weather_proxy.py
+    startCommand: python weather_proxy.py
+    healthCheckPath: /healthz
+    envVars:
+      - key: MOJI_APPCODE
+        sync: false
+      - key: TRAVEL_MAP_ALLOWED_ORIGIN
+        sync: false

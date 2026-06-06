@@ -1,0 +1,4 @@
+.env.local
+.weather-cache/
+weather_proxy.error.log
+__pycache__/

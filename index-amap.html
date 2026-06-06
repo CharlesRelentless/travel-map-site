@@ -1,0 +1,2184 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="worker-src blob: 'self'; child-src blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://webapi.amap.com https://*.amap.com https://*.is.autonavi.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://beacon.cdn.qq.com https://api.open-meteo.com https://restapi.amap.com; connect-src 'self' http://127.0.0.1:8000 http://localhost:8000 https://*.amap.com https://*.is.autonavi.com https://api.open-meteo.com https://restapi.amap.com https://beacon.cdn.qq.com;">
+  <title>新藏线 G219 + 阿里 + 珠峰 7 日交互地图 · 高德版</title>
+  <style>
+    :root {
+      --ink: #172026;
+      --muted: #5d6972;
+      --line: #d7dde1;
+      --panel: #ffffff;
+      --surface: #f5f7f8;
+      --accent: #0f766e;
+      --accent-2: #b45309;
+      --danger: #b91c1c;
+      --shadow: 0 14px 34px rgba(23, 32, 38, .14);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      overflow-x: hidden;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      background: var(--surface);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      z-index: 500;
+    }
+
+    header {
+      padding: 22px 22px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 23px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .stat {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fafafa;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 17px;
+      line-height: 1.1;
+    }
+
+    .stat span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .tab {
+      height: 46px;
+      font-size: 12px;
+      line-height: 1.3;
+      padding: 4px 6px;
+      text-align: center;
+    }
+    .tab-date {
+      display: block;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--accent-2);
+    }
+    .tab.active .tab-date { color: #075e57; }
+
+    .tab.active {
+      border-color: var(--accent);
+      background: #e7f4f2;
+      color: #075e57;
+      font-weight: 700;
+    }
+
+    .panel {
+      overflow: auto;
+      padding: 0 14px 18px;
+    }
+
+    .day-card {
+      margin: 14px 0;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .day-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .day-title h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.35;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #fff7ed;
+      color: #9a3412;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .route-summary {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .stop {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 10px;
+      padding: 10px 0;
+      border-top: 1px solid #edf0f2;
+      cursor: pointer;
+    }
+
+    .num {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #e7f4f2;
+      color: #075e57;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .stop h3 {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .desc {
+      margin: 6px 0 0;
+      color: #364148;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+
+    .map-tools {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 700;
+      display: flex;
+      gap: 8px;
+    }
+
+    .tool-btn {
+      min-width: 42px;
+      height: 38px;
+      padding: 0 12px;
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .mobile-panel-toggle {
+      display: none;
+    }
+
+    /* 实时定位样式 */
+    .loc-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #2563eb;
+      border: 3px solid white;
+      box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(37,99,235,.55); }
+      70%  { box-shadow: 0 0 0 28px rgba(37,99,235,0); }
+      100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+    }
+
+    .loc-panel {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      z-index: 700;
+      min-width: 240px;
+      max-width: 330px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.94);
+      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+      font-size: 12px;
+      line-height: 1.55;
+      display: none;
+    }
+    .loc-panel.show { display: block; }
+    .loc-panel .nearest-name { font-weight: 700; font-size: 14px; }
+    .loc-panel .dist { color: var(--accent); font-weight: 700; }
+    .loc-section {
+      padding-top: 8px;
+      margin-top: 8px;
+      border-top: 1px solid var(--line);
+    }
+    .loc-section:first-child {
+      padding-top: 0;
+      margin-top: 0;
+      border-top: 0;
+    }
+    .loc-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .next-name {
+      margin-top: 2px;
+      font-weight: 800;
+      font-size: 15px;
+      line-height: 1.35;
+    }
+    .upcoming-list {
+      display: grid;
+      gap: 6px;
+      margin-top: 7px;
+    }
+    .upcoming-item {
+      padding: 7px 8px;
+      border-radius: 8px;
+      background: #f5f7f8;
+      line-height: 1.35;
+    }
+    .upcoming-item b {
+      display: block;
+      margin-bottom: 2px;
+    }
+    .upcoming-item.watch {
+      background: #fff7ed;
+      color: #b45309;
+    }
+    .upcoming-item.danger {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+    .sim-panel {
+      position: absolute;
+      top: 62px;
+      right: 14px;
+      z-index: 710;
+      width: 260px;
+      padding: 12px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.96);
+      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+      font-size: 12px;
+      display: none;
+    }
+    .sim-panel.show { display: block; }
+    .sim-row {
+      display: grid;
+      gap: 5px;
+      margin-bottom: 9px;
+    }
+    .sim-row label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .sim-row select {
+      width: 100%;
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 6px 8px;
+      background: white;
+      color: var(--text);
+      font: inherit;
+    }
+    .sim-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .sim-actions button {
+      flex: 1;
+      min-height: 34px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+    .cache-status {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .eta-value {
+      color: #2563eb;
+      font-weight: 800;
+    }
+    .loc-risk {
+      margin-top: 7px;
+      padding: 7px 8px;
+      border-radius: 8px;
+      background: #eef7f4;
+      color: #0f766e;
+      line-height: 1.45;
+    }
+    .loc-risk.watch {
+      background: #fff7ed;
+      color: #b45309;
+    }
+    .loc-risk.danger {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+    .loc-note {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .weather-alert-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 3000;
+      display: none;
+      place-items: center;
+      padding: 18px;
+      background: rgba(15,23,42,.58);
+    }
+    .weather-alert-modal.show { display: grid; }
+    .weather-alert-card {
+      width: min(520px, 100%);
+      max-height: min(78vh, 680px);
+      overflow-y: auto;
+      padding: 18px;
+      border: 2px solid #dc2626;
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 20px 60px rgba(0,0,0,.28);
+    }
+    .weather-alert-card h2 { margin: 0 0 8px; color: #b91c1c; font-size: 20px; }
+    .weather-alert-card p { margin: 7px 0; line-height: 1.5; }
+    .weather-alert-list { display: grid; gap: 8px; margin: 12px 0; }
+    .weather-alert-item { padding: 9px 10px; border-radius: 9px; background: #fef2f2; color: #991b1b; line-height: 1.45; }
+    .weather-alert-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
+
+    /* AMap InfoWindow 内容样式（替代 leaflet-popup-content） */
+    .amap-info-content {
+      padding: 10px 14px;
+      min-width: 300px;
+      max-width: 360px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    .popup-title {
+      margin: 0 0 8px;
+      font-size: 16px;
+      line-height: 1.35;
+    }
+    .popup-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 10px 0;
+    }
+    .popup-box {
+      padding: 8px;
+      border-radius: 8px;
+      background: #f5f7f8;
+      font-size: 12px;
+    }
+    .popup-box b {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+    .weather-ok { color: var(--accent); }
+    .weather-warn { color: var(--danger); }
+    .weather-watch { color: #b45309; }
+    .risk-line {
+      margin: 8px 0 0;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #eef7f4;
+      color: #0f766e;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .risk-line.watch {
+      background: #fff7ed;
+      color: #b45309;
+    }
+    .risk-line.danger {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+    .chart-box {
+      margin-top: 12px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fafbfc;
+    }
+    .chart-box .chart-title {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0 0 6px;
+    }
+    .chart-box svg {
+      display: block;
+      width: 100%;
+      overflow: visible;
+    }
+    .chart-box .xlabel, .chart-box .ylabel {
+      font-size: 10px;
+      fill: #8899a6;
+    }
+
+    .legend {
+      position: absolute;
+      left: 436px;
+      bottom: 18px;
+      z-index: 650;
+      max-width: 420px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .94);
+      box-shadow: var(--shadow);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    /* 自定义 Marker 样式：替代 Leaflet pin。AMap 会改写外层 DOM，样式直接绑定 .pin 更稳。 */
+    .pin {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border: 2.5px solid white;
+      border-radius: 58% 58% 58% 18%;
+      transform: rotate(-45deg);
+      box-shadow: 0 7px 18px rgba(0,0,0,.26);
+      color: white;
+      font-size: 12px;
+      font-weight: 800;
+      position: relative;
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .pin span {
+      transform: rotate(45deg);
+      display: block;
+    }
+    .pin.focused {
+      transform: rotate(-45deg) scale(1.28);
+      border-color: #fff;
+      box-shadow:
+        0 0 0 5px rgba(37, 99, 235, .22),
+        0 0 0 11px rgba(37, 99, 235, .10),
+        0 10px 24px rgba(0,0,0,.34);
+      z-index: 2;
+    }
+    .pin.focused span {
+      transform: rotate(45deg) scale(.92);
+    }
+    /* 让 Marker 容器居中 */
+    .amap-marker-content {
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: visible;
+    }
+
+    /* AMap 默认 InfoWindow 关闭按钮不遮挡 */
+    .amap-info-close {
+      z-index: 10;
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        display: block;
+        min-height: 100vh;
+      }
+
+      aside {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 900;
+        max-height: 72vh;
+        min-height: 0;
+        border-right: 0;
+        border-top: 1px solid var(--line);
+        border-radius: 14px 14px 0 0;
+        box-shadow: 0 -14px 34px rgba(23, 32, 38, .18);
+        transform: translateY(calc(100% - 52px));
+        transition: transform .22s ease;
+      }
+
+      body.panel-open aside {
+        transform: translateY(0);
+      }
+
+      header {
+        padding: 12px 14px 10px;
+      }
+
+      header h1,
+      header .sub,
+      header .stats {
+        display: none;
+      }
+
+      .tabs {
+        padding: 8px 52px 8px 10px;
+        gap: 6px;
+        overflow-x: auto;
+        grid-template-columns: repeat(7, minmax(72px, 1fr));
+      }
+
+      .tab {
+        height: 36px;
+      }
+
+      .panel {
+        max-height: calc(72vh - 54px);
+        padding-bottom: 20px;
+      }
+
+      .mobile-panel-toggle {
+        display: block;
+        position: fixed;
+        right: 12px;
+        bottom: 10px;
+        z-index: 960;
+        height: 38px;
+        padding: 0 12px;
+        box-shadow: var(--shadow);
+        font-weight: 800;
+      }
+
+      #map {
+        height: 100vh;
+      }
+
+      .map-tools {
+        left: 10px;
+        right: 10px;
+        top: 10px;
+        gap: 6px;
+        overflow-x: auto;
+        padding-bottom: 3px;
+      }
+
+      .tool-btn {
+        flex: 0 0 auto;
+        height: 36px;
+        padding: 0 10px;
+        font-size: 12px;
+      }
+
+      .loc-panel {
+        left: 10px;
+        right: 10px;
+        bottom: 58px;
+        max-width: none;
+        max-height: 44vh;
+        overflow: auto;
+        padding: 10px 12px;
+      }
+
+      .sim-panel {
+        left: 10px;
+        right: 10px;
+        top: 56px;
+        width: auto;
+      }
+
+      .amap-info-content {
+        max-width: min(320px, calc(100vw - 64px));
+        max-height: 55vh;
+        overflow-y: auto;
+      }
+
+      .legend {
+        display: none;
+      }
+    }
+  </style>
+<script src="https://beacon.cdn.qq.com/sdk/4.5.9/beacon_web.min.js"></script>
+<script>
+(function(){
+  try{
+    var beacon=new BeaconAction({
+      appkey:'0WEB06U85YBSLJNL',
+      versionCode:'1.0.0',
+      channelID:'share',
+      delay:1000,
+      sessionDuration:30*60*1000,
+      isOversea:false,
+      needReportRqdEvent:false
+    });
+    beacon.onDirectUserAction('preview_page_view',{
+      'url':location.href,
+      'referrer':document.referrer,
+      'title':document.title,
+      'sandbox_id':'5841f8297c134d43a0bd618ffb63f300'
+    });
+  }catch(e){}
+})();
+</script>
+</head>
+<body>
+  <main class="app">
+    <aside>
+      <header>
+        <h1>新藏线 G219 + 阿里 + 珠峰 7 日交互地图 · 高德版</h1>
+        <p class="sub">高德地图底图 + GeoHUB 自定义样式。分日路线、景点介绍、经纬度实时温度。路线基于你提供的 4 张行程图整理。</p>
+        <div class="stats">
+          <div class="stat"><b>7 天</b><span>喀什至拉萨</span></div>
+          <div class="stat"><b>约 4000 km</b><span>高原自驾</span></div>
+          <div class="stat"><b>5000 m+</b><span>最高海拔段</span></div>
+        </div>
+      </header>
+      <nav class="tabs" id="tabs"></nav>
+      <section class="panel" id="panel"></section>
+    </aside>
+    <section style="position:relative; min-width:0;">
+      <div id="map"></div>
+      <div class="map-tools">
+        <button class="tool-btn" id="locBtn" title="定位我的位置" style="background:#2563eb;color:#fff;border-color:#2563eb;">📍 定位</button>
+        <button class="tool-btn" id="simBtn" title="手动选择当前位置或起点">模拟</button>
+        <button class="tool-btn" id="cacheMapBtn" title="高德底图由官方CDN加速，自动利用浏览器缓存" style="background:#f0f4f8;cursor:default;">🚀 CDN加速</button>
+        <button class="tool-btn" id="fitAll" title="显示全程">全程</button>
+        <button class="tool-btn" id="fitDay" title="跳到手机日期对应的今日行程">当天</button>
+      </div>
+      <div class="sim-panel" id="simPanel">
+        <div class="sim-row">
+          <label for="simDay">模拟日期</label>
+          <select id="simDay"></select>
+        </div>
+        <div class="sim-row">
+          <label for="simStop">手动起点</label>
+          <select id="simStop"></select>
+        </div>
+        <div class="sim-actions">
+          <button id="applySim">开始模拟</button>
+          <button id="clearSim">清除</button>
+        </div>
+        <div class="cache-status" id="simStatus">选择一个站点作为当前位置，用于出发前模拟 ETA。</div>
+      </div>
+      <div class="loc-panel" id="locPanel">
+        <div class="loc-section">
+          <div class="loc-label">当前位置</div>
+          <div class="nearest-name" id="locNearest">—</div>
+          <div>距离路线 <span class="dist" id="locDist">—</span></div>
+          <div style="color:#66727b;margin-top:3px;">定位精度 <span id="locAcc">—</span></div>
+        </div>
+        <div class="loc-section">
+          <div class="loc-label">下一目的地</div>
+          <div class="next-name" id="locNextName">等待定位</div>
+          <div>距你约 <span class="eta-value" id="locNextDist">—</span></div>
+          <div>预计 <span class="eta-value" id="locEta">—</span> 到达 <span class="eta-value" id="locArrive">—</span></div>
+          <div class="loc-risk" id="locNextRisk">天气风险待计算</div>
+          <div class="loc-label" style="margin-top:9px;">前方 3 个目的地</div>
+          <div class="upcoming-list" id="locUpcoming">等待定位或模拟</div>
+          <div class="loc-note" id="locEtaNote">ETA 优先使用高德驾车路径规划，真实行车时间请以导航为准。</div>
+        </div>
+      </div>
+      <div class="legend">
+        城市温度优先使用墨迹逐小时预报，无人区温度使用 Open-Meteo 经纬度预报，并叠加最近县市的墨迹官方预警。高原区域天气变化快，实际出行请以导航、路况、边防要求和当地天气预警为准。半离线瓦片缓存在此版本不可用（高德瓦片受鉴权保护），建议保持网络连接。
+      </div>
+    </section>
+  </main>
+  <div class="weather-alert-modal" id="weatherAlertModal" role="dialog" aria-modal="true" aria-labelledby="weatherAlertTitle">
+    <div class="weather-alert-card">
+      <h2 id="weatherAlertTitle">前方恶劣天气风险</h2>
+      <p>未来当前阶段及次日行程发现高风险天气。请在出发前再次核对墨迹官方预警、道路管制和实时导航，必要时推迟或调整路线。</p>
+      <div class="weather-alert-list" id="weatherAlertList"></div>
+      <p class="loc-note">站点天气不能代表两点之间整段道路，山口、达坂和无人区应额外人工核查。</p>
+      <div class="weather-alert-actions"><button class="tool-btn" id="closeWeatherAlert" type="button">我已知晓</button></div>
+    </div>
+  </div>
+  <button class="mobile-panel-toggle" id="mobilePanelToggle" type="button">行程</button>
+
+  <!-- 高德 JS API 2.0 安全配置：必须在脚本加载前设置 -->
+  <script>
+    window._AMapSecurityConfig = {
+      securityJsCode: 'e38864e4b8b6dedb1b54f3df12237793'
+    };
+  </script>
+  <script>
+    /* ==================== 坐标转换：WGS-84 → GCJ-02 ==================== */
+    function outOfChina(lat, lng) {
+      return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271;
+    }
+    function transformLat(x, y) {
+      let ret = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+      ret += (20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2 / 3;
+      ret += (20 * Math.sin(y * Math.PI) + 40 * Math.sin(y / 3 * Math.PI)) * 2 / 3;
+      ret += (160 * Math.sin(y / 12 * Math.PI) + 320 * Math.sin(y * Math.PI / 30)) * 2 / 3;
+      return ret;
+    }
+    function transformLng(x, y) {
+      let ret = 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+      ret += (20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2 / 3;
+      ret += (20 * Math.sin(x * Math.PI) + 40 * Math.sin(x / 3 * Math.PI)) * 2 / 3;
+      ret += (150 * Math.sin(x / 12 * Math.PI) + 300 * Math.sin(x / 30 * Math.PI)) * 2 / 3;
+      return ret;
+    }
+    function wgs84ToGcj02(lat, lng) {
+      if (outOfChina(lat, lng)) return { lat, lng };
+      const a = 6378245.0;
+      const ee = 0.00669342162296594323;
+      let dLat = transformLat(lng - 105, lat - 35);
+      let dLng = transformLng(lng - 105, lat - 35);
+      const radLat = lat / 180 * Math.PI;
+      let magic = Math.sin(radLat);
+      magic = 1 - ee * magic * magic;
+      const sqrtMagic = Math.sqrt(magic);
+      dLat = (dLat * 180) / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI);
+      dLng = (dLng * 180) / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
+      return { lat: lat + dLat, lng: lng + dLng };
+    }
+  </script>
+  <script>
+    /* ==================== 数据结构 ==================== */
+    const dayColors = ["#0f766e", "#b45309", "#7c3aed", "#be123c", "#2563eb", "#15803d", "#c2410c"];
+
+    // 原始数据（WGS-84 坐标）
+    const daysRaw = [
+      {
+        day: 1,
+        title: "喀什机场 - 喀什古城 - 三十里营房",
+        distance: "600 km / 9.5 h",
+        note: "从低海拔喀什进入新藏线，翻库地达坂、黑卡达坂，海拔快速爬升。",
+        stops: [
+          ["喀什徕宁机场", 39.540837, 76.021372, 1300, "08:00", "行程起点。喀什市区气候干热，适合完成补给、证件和车辆检查。"],
+          ["喀什古城", 39.471343, 75.987776, 1300, "08:30-09:00", "新疆代表性历史街区，适合短暂停留拍照后出发。"],
+          ["新藏线零起点", 37.875812, 77.466303, 1350, "12:00", "G219 新藏线起点打卡位，之后进入长距离高原穿越路段。"],
+          ["库地达坂观景台", 37.0896, 76.9348, 3150, "途中", "从叶城方向进入昆仑山区后的重要达坂，海拔升高、风力增强。"],
+          ["黑卡达坂", 36.4307, 77.5784, 4800, "途中", "高海拔达坂，图中提示 4800 米，可能出现强风、低温和碎石路段。"],
+          ["三十里营房（昆岭镇，原赛图拉镇）", 36.351609, 78.027489, 3600, "17:30", "Day 1 住宿地，现属和康县昆岭镇，原赛图拉镇驻地，夜间注意保暖和高反观察。"]
+        ]
+      },
+      {
+        day: 2,
+        title: "三十里营房 - 界山达坂 - 狮泉河镇",
+        distance: "700 km / 11 h",
+        note: "全程最高风险日，经过界山达坂、班公措、日土岩画，夜宿狮泉河。",
+        stops: [
+          ["三十里营房（昆岭镇，原赛图拉镇）", 36.351609, 78.027489, 3600, "07:00", "从和康县昆岭镇（原赛图拉镇）住宿地出发，尽量早走以给后续无人区路段留出余量。"],
+          ["康西瓦烈士陵园", 36.217392, 78.756203, 4000, "08:30", "新藏线重要纪念地，停留约 20 分钟，注意风大和低温。"],
+          ["界山达坂", 34.685895, 80.277605, 5248, "12:30", "全程最高海拔点之一，图中标注 5248 米，建议短停不剧烈活动。"],
+          ["班公措观景台", 33.470159, 79.835550, 4250, "16:00", "使用高德“班公湖观景台”位置；中印边境湖泊景观，湖面风大。"],
+          ["日土岩画", 33.162530, 79.834905, 4300, "16:50", "使用高德 G219 东侧“日土岩画”位置，体现高原游牧与早期文明痕迹。"],
+          ["狮泉河镇", 32.495533, 80.099462, 4300, "17:50", "阿里地区核心城镇，适合补给、住宿和车辆检查。"],
+          ["阿里暗夜公园", 32.337830, 80.040394, 4300, "18:10", "位于狮泉河镇西南约 20 公里 G219 路旁，傍晚或夜间体验更佳。"]
+        ]
+      },
+      {
+        day: 3,
+        title: "狮泉河镇 - 札达土林 - 塔钦",
+        distance: "700 km / 10.5 h",
+        note: "进入阿里古文明与冈仁波齐视线范围，土林、古格王朝遗址是重点。",
+        stops: [
+          ["狮泉河镇", 32.495533, 80.099462, 4300, "07:00", "从阿里首府出发，后续路段景观密度高但车程长。"],
+          ["皮央东嘎遗址", 31.681710, 79.800071, 4200, "10:30", "阿里早期佛教石窟与遗址群，适合了解古代西藏西部文明。"],
+          ["札达土林", 31.496948, 79.797691, 3700, "11:30", "使用高德札达土林国家地质公园位置，是阿里最具辨识度的景观之一。"],
+          ["古格王朝遗址", 31.465164, 79.670271, 3800, "12:13", "古格王国都城遗址，宫殿、城堡和壁画遗存集中。"],
+          ["玛琅观景台", 31.444383, 79.868657, 4500, "13:13", "前往塔钦途中观景点，适合远眺高原山体与开阔草原。"],
+          ["塔钦", 30.972112, 81.286207, 4600, "18:13", "高德中主要标注为塔尔钦，冈仁波齐南侧转山起点。"]
+        ]
+      },
+      {
+        day: 4,
+        title: "塔钦 - 玛旁雍错 - 萨嘎县",
+        distance: "600 km / 7.5 h",
+        note: "冈仁波齐、玛旁雍错、拉昂措和高原湖群密集出现。",
+        stops: [
+          ["塔钦", 30.972112, 81.286207, 4600, "07:30", "从冈仁波齐脚下出发，清晨天气变化快。"],
+          ["冈仁波齐观景点", 30.959387, 81.251342, 5200, "07:39", "使用高德 G219 冈仁波齐观景台位置，能见度取决于云量和清晨光线。"],
+          ["玛旁雍错", 30.723800, 81.367696, 4590, "07:59", "使用高德玛旁雍措景区位置，湖面开阔，天气晴朗时色彩极佳。"],
+          ["拉昂措", 30.658099, 81.180193, 4570, "08:29", "使用高德拉昂错景区位置，景观冷峻荒凉。"],
+          ["公珠措", 30.644746, 82.129922, 4700, "09:59", "阿里到日喀则方向的重要湖泊景观点。"],
+          ["帕羊草原", 30.040597, 83.469188, 4600, "11:59", "以高德帕羊镇附近作为沿途草原代表点。"],
+          ["五彩沙漠", 29.867788, 83.786548, 4500, "12:29", "使用高德仲巴县五彩沙漠位置，风大时注意沙尘。"],
+          ["萨嘎县", 29.331906, 85.230701, 4500, "14:59", "Day 4 住宿地，是阿里至珠峰线路的重要中转县城。"]
+        ]
+      },
+      {
+        day: 5,
+        title: "萨嘎县 - 佩枯措 - 加乌拉山口 - 珠峰大本营",
+        distance: "600 km / 10 h",
+        note: "进入珠峰视域，佩枯措、希夏邦马峰、加乌拉山口和珠峰大本营是核心。",
+        stops: [
+          ["萨嘎县", 29.331906, 85.230701, 4500, "07:00", "清晨出发，全天海拔高且路程长。"],
+          ["佩枯措", 28.818264, 85.491332, 4590, "08:30", "使用高德佩枯措观景台位置，可远眺希夏邦马峰，湖边风大。"],
+          ["达格架喷泉", 29.0000, 86.6800, 4300, "11:00", "沿途地热景观，适合短暂停留。"],
+          ["桑桑高原牧场", 29.419681, 86.725121, 4400, "13:00", "以高德桑桑镇附近作为高原牧场代表点，视野开阔。"],
+          ["浪措湖", 29.202691, 87.390800, 4300, "14:30", "使用高德浪措湖位置，作为前往珠峰方向的过渡停靠。"],
+          ["加乌拉山口", 28.502846, 87.067551, 5198, "17:00", "使用高德加乌拉山口观景平台位置，天气好时可看珠峰、洛子峰等。"],
+          ["珠峰大本营", 28.168573, 86.841320, 5200, "17:30", "使用高德珠峰大本营景点位置，夜间低温明显，注意高反和保暖。"]
+        ]
+      },
+      {
+        day: 6,
+        title: "珠峰大本营 - 宗措湖 - 扎什伦布寺 - 日喀则",
+        distance: "500 km / 8.5 h",
+        note: "从珠峰区域返回日喀则，兼顾湖泊、峡谷与寺院。",
+        stops: [
+          ["珠峰大本营", 28.168573, 86.841320, 5200, "07:30", "清晨离开大本营，低温和风力通常较强。"],
+          ["宗措湖", 28.117134, 87.663360, 4500, "11:30", "使用高德定结宗措湖位置，适合短停观景。"],
+          ["阿玛直米峰观景台", 28.104638, 87.625017, 4700, "11:34", "使用高德阿玛直米雪山位置作为观景参考点。"],
+          ["奇林峡", 28.121313, 88.121995, 4200, "12:34", "使用高德奇林峡景区位置，峡谷地貌与阿里段土林形成对照。"],
+          ["扎什伦布寺", 29.2670, 88.8800, 3850, "16:04", "日喀则地标寺院，格鲁派重要寺庙。"],
+          ["日喀则市", 29.2670, 88.8810, 3800, "16:09", "Day 6 住宿地，海拔较阿里和珠峰段更温和。"]
+        ]
+      },
+      {
+        day: 7,
+        title: "日喀则 - 卡若拉冰川 - 羊卓雍措 - 拉萨",
+        distance: "300 km / 5 h",
+        note: "收官日，经过卡若拉冰川、羊湖，抵达拉萨布达拉宫。",
+        stops: [
+          ["日喀则市", 29.2670, 88.8810, 3800, "08:00", "从日喀则出发，进入拉萨方向经典景观线路。"],
+          ["卡若拉冰川", 28.886525, 90.164735, 5040, "10:30", "使用高德卡若拉冰川景区位置，海拔高，停留需控制强度。"],
+          ["羊卓雍措", 29.193802, 90.618082, 4441, "11:30", "使用高德羊卓雍措景区位置，湖面色彩随天气和光线变化明显。"],
+          ["布达拉宫广场", 29.653970, 91.116661, 3650, "13:00", "抵达拉萨后的标志性终点，适合完成全线收官打卡。"],
+          ["拉萨市区", 29.6520, 91.1720, 3650, "13:30", "全程终点，建议休整、还车或继续拉萨市内游览。"]
+        ]
+      }
+    ];
+
+    // 将所有坐标转换为 GCJ-02，生成 days 数据
+    const days = daysRaw.map(day => ({
+      ...day,
+      stops: day.stops.map(stop => {
+        const gcj = wgs84ToGcj02(stop[1], stop[2]);
+        return [stop[0], gcj.lat, gcj.lng, stop[3], stop[4], stop[5]];
+      })
+    }));
+
+    // allStops（GCJ-02 坐标）
+    const allStops = days.flatMap((day, dayIndex) => day.stops.map((stop, index) => ({
+      day: day.day,
+      index: index + 1,
+      name: stop[0],
+      lat: stop[1],
+      lng: stop[2],
+      wgsLat: daysRaw[dayIndex].stops[index][1],
+      wgsLng: daysRaw[dayIndex].stops[index][2],
+      altitude: stop[3],
+      time: stop[4],
+      desc: stop[5],
+      color: dayColors[day.day - 1]
+    })));
+
+    // 全局变量
+    let map;
+    let infoWindow;
+    let activeDay = 1;
+    let activePolylines = [];
+    let activeMarkers = [];
+    let activeCircles = [];
+    let focusedStopKey = null;
+    let lastPosition = null;
+    let manualMode = false;
+    let userMarker, userCircle, watchId;
+    let tracking = false;
+    const weatherCache = new Map();
+    const weatherLoading = new Set();
+    const WEATHER_STORAGE_KEY = "travelMapWeatherCache.v4";
+    const WEATHER_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+    const WEATHER_REFRESH_INTERVAL = 20 * 60 * 1000;
+    const WEATHER_RISK_SCAN_INTERVAL = 60 * 1000;
+    const WEATHER_ALERT_STORAGE_KEY = "travelMapWeatherAlert.v1";
+    const MOJI_PROXY_BASE = location.protocol === "file:" ? "http://127.0.0.1:8000" : "";
+    const mojiRequestCache = new Map();
+    let lastWeatherRiskScanAt = 0;
+    const MOJI_CITY_BY_STOP = {
+      "喀什徕宁机场": [285325, "喀什市"], "喀什古城": [285325, "喀什市"],
+      "新藏线零起点": [2566, "叶城县"], "库地达坂观景台": [2566, "叶城县"],
+      "黑卡达坂": [2566, "叶城县"], "三十里营房": [2566, "叶城县"],
+      "三十里营房（昆岭镇，原赛图拉镇）": [2566, "叶城县"],
+      "康西瓦烈士陵园": [2566, "叶城县"], "界山达坂": [3158, "日土县"],
+      "班公措观景台": [3158, "日土县"], "日土岩画": [3158, "日土县"],
+      "狮泉河镇": [3154, "噶尔县"], "阿里暗夜公园": [3154, "噶尔县"],
+      "皮央东嘎遗址": [3157, "札达县"], "札达土林": [3157, "札达县"],
+      "古格王朝遗址": [3157, "札达县"], "玛琅观景台": [3157, "札达县"],
+      "塔钦": [3156, "普兰县"], "冈仁波齐观景点": [3156, "普兰县"],
+      "玛旁雍错": [3156, "普兰县"], "拉昂措": [3156, "普兰县"],
+      "公珠措": [3133, "仲巴县"], "帕羊草原": [3133, "仲巴县"],
+      "五彩沙漠": [3133, "仲巴县"], "萨嘎县": [3137, "萨嘎县"],
+      "佩枯措": [3137, "萨嘎县"], "达格架喷泉": [3137, "萨嘎县"],
+      "桑桑高原牧场": [3127, "昂仁县"], "浪措湖": [3127, "昂仁县"],
+      "加乌拉山口": [3124, "定日县"], "珠峰大本营": [3124, "定日县"],
+      "宗措湖": [3124, "定日县"], "阿玛直米峰观景台": [3132, "定结县"],
+      "奇林峡": [3132, "定结县"], "扎什伦布寺": [3121, "日喀则市"],
+      "日喀则市": [3121, "日喀则市"], "卡若拉冰川": [3117, "浪卡子县"],
+      "羊卓雍措": [3117, "浪卡子县"], "布达拉宫广场": [3084, "拉萨市"],
+      "拉萨市区": [3084, "拉萨市"]
+    };
+    const MOJI_HOURLY_STOPS = new Set([
+      "喀什徕宁机场", "喀什古城", "新藏线零起点",
+      "狮泉河镇", "阿里暗夜公园", "萨嘎县",
+      "扎什伦布寺", "日喀则市", "布达拉宫广场", "拉萨市区"
+    ]);
+    // 高德 Web 服务 Key（自驾 ETA 用，临时自用）
+    const AMAP_WEB_SERVICE_KEY = "2b951f9bc42ba68dab53c4ba5dab0a12";
+    const drivingRouteCache = new Map();
+
+    /* ==================== 高德 JS API 加载 ==================== */
+    let initCallback = null;
+    const amapReady = new Promise(resolve => { initCallback = resolve; });
+    window.onAmapLoad = function () {
+      if (window.AMap && initCallback) initCallback();
+    };
+
+    (function loadAmap() {
+      const script = document.createElement("script");
+      script.src = "https://webapi.amap.com/maps?v=2.0&key=740bb0521ddfee751a76a41eb44d484f&callback=onAmapLoad";
+      script.onerror = function () {
+        document.getElementById("map").innerHTML = '<div style="display:grid;place-items:center;height:100%;padding:24px;text-align:center;color:#b91c1c;background:#fff">高德地图加载失败，请检查网络连接后刷新页面。</div>';
+      };
+      document.head.appendChild(script);
+    })();
+  </script>
+  <script>
+    /* ==================== 天气逻辑（与原版完全相同） ==================== */
+    hydrateWeatherCache();
+
+    function isMobileLayout() {
+      return window.matchMedia && window.matchMedia("(max-width: 900px)").matches;
+    }
+    function closeMobilePanel() {
+      if (isMobileLayout()) document.body.classList.remove("panel-open");
+    }
+
+    const TRIP_START = new Date(2026, 5, 6);
+    function getDayDate(dayNum) {
+      const d = new Date(TRIP_START);
+      d.setDate(d.getDate() + dayNum - 1);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+    function localMidnight(date) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+    function getTripDayState(date = new Date()) {
+      const start = localMidnight(TRIP_START);
+      const today = localMidnight(date);
+      const diffDays = Math.round((today - start) / 86400000);
+      if (diffDays < 0) return { day: 1, phase: "before", diffDays };
+      if (diffDays >= days.length) return { day: days.length, phase: "after", diffDays };
+      return { day: diffDays + 1, phase: "active", diffDays };
+    }
+    function tripDayStatusText(state = getTripDayState()) {
+      if (state.phase === "before") return "行程未开始，已推荐 Day 1 第一站。";
+      if (state.phase === "after") return "行程日期已结束，已显示 Day 7。";
+      return `手机日期对应 Day ${state.day}。`;
+    }
+    function fmtDateCN(iso) {
+      const d = new Date(iso + "T00:00:00+08:00");
+      return `${d.getMonth() + 1}月${d.getDate()}日`;
+    }
+    function parseArrivalHour(timeText) {
+      const match = String(timeText || "").match(/(\d{1,2})(?::(\d{2}))?/);
+      if (!match) return NaN;
+      return Number(match[1]) + (Number(match[2] || 0) / 60);
+    }
+    function nearestHourly(hourly, targetHour) {
+      let best = hourly[0];
+      for (const item of hourly) {
+        if (Math.abs(item.hour - targetHour) < Math.abs(best.hour - targetHour)) best = item;
+      }
+      return best;
+    }
+    function getArrivalForecast(stop, cached) {
+      if (!cached || !cached.hourly || !cached.hourly.length) return null;
+      const arrivalHour = parseArrivalHour(stop.time);
+      return nearestHourly(cached.hourly, Number.isFinite(arrivalHour) ? arrivalHour : 12);
+    }
+    function weatherCodeText(code) {
+      const map = {
+        0: "晴", 1: "大部晴", 2: "多云", 3: "阴",
+        45: "雾", 48: "冻雾",
+        51: "小毛毛雨", 53: "毛毛雨", 55: "强毛毛雨",
+        56: "冻毛毛雨", 57: "强冻毛毛雨",
+        61: "小雨", 63: "中雨", 65: "大雨",
+        66: "冻雨", 67: "强冻雨",
+        71: "小雪", 73: "中雪", 75: "大雪", 77: "雪粒",
+        80: "小阵雨", 81: "阵雨", 82: "强阵雨",
+        85: "小阵雪", 86: "强阵雪",
+        95: "雷暴", 96: "雷暴伴冰雹", 99: "强雷暴伴冰雹"
+      };
+      return map[code] || "天气待更新";
+    }
+    function getMojiAlertText(value) {
+      if (!value) return "";
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          const text = getMojiAlertText(item);
+          if (text) return text;
+        }
+        return "";
+      }
+      if (typeof value !== "object") return "";
+      const title = value.title || value.name || value.alertTitle || value.warningTitle;
+      const content = value.content || value.description || value.detail || value.text;
+      if (title || content) return [title, content].filter(Boolean).join("：").slice(0, 180);
+      for (const item of Object.values(value)) {
+        const text = getMojiAlertText(item);
+        if (text) return text;
+      }
+      return "";
+    }
+    function describeWeatherRisk(hour, cached) {
+      if (!cached) return { level: "", text: "到达时段天气：待加载。" };
+      const alertText = getMojiAlertText(cached.alerts);
+      if (alertText) return { level: "danger", text: `墨迹天气预警：${alertText}` };
+      if (cached.source === "estimate" || !hour) {
+        const reason = cached.fallbackReason || "暂未取得该站点到达时段的逐小时预报";
+        return { level: "watch", text: `到达时段天气：${reason}，当前仅显示估算温度；请以实时预报/当地预警为准。` };
+      }
+      const code = hour.weatherCode;
+      const condition = hour.condition || weatherCodeText(code);
+      const pop = Number.isFinite(hour.precipitationProbability) ? hour.precipitationProbability : null;
+      const precip = Number.isFinite(hour.precipitation) ? hour.precipitation : null;
+      const wind = Number.isFinite(hour.windSpeed) ? hour.windSpeed : null;
+      const gust = Number.isFinite(hour.windGust) ? hour.windGust : null;
+      const temp = Number.isFinite(hour.temp) ? Math.round(hour.temp) : null;
+      const severeText = /暴雨|大暴雨|特大暴雨|暴雪|雷暴|冰雹|沙尘暴/.test(condition);
+      const watchText = /雨|雪|雾|霾|沙尘|雷/.test(condition);
+      const severeCode = [65, 67, 75, 82, 86, 95, 96, 99].includes(code);
+      const watchCode = [45, 48, 51, 53, 55, 56, 57, 61, 63, 66, 71, 73, 77, 80, 81, 85].includes(code);
+      let level = "";
+      if (severeText || severeCode || (pop != null && pop >= 70) || (precip != null && precip >= 2) || (gust != null && gust >= 50)) {
+        level = "danger";
+      } else if (watchText || watchCode || (pop != null && pop >= 40) || (precip != null && precip >= 0.5) || (gust != null && gust >= 35) || (wind != null && wind >= 25)) {
+        level = "watch";
+      }
+      const parts = [`${hour.hour}:00 ${condition}`];
+      if (temp != null) parts.push(`${temp}°C`);
+      if (pop != null) parts.push(`降水概率 ${Math.round(pop)}%`);
+      if (precip != null) parts.push(`降水 ${precip} mm`);
+      if (wind != null) parts.push(`风速 ${Math.round(wind)} km/h`);
+      if (gust != null) parts.push(`阵风 ${Math.round(gust)} km/h`);
+      const prefix = level === "danger" ? "高风险" : level === "watch" ? "需关注" : "相对平稳";
+      return { level, text: `到达时段天气：${prefix}，${parts.join(" · ")}。` };
+    }
+
+    function hydrateWeatherCache() {
+      try {
+        const raw = localStorage.getItem(WEATHER_STORAGE_KEY);
+        if (!raw) return;
+        const stored = JSON.parse(raw);
+        const now = Date.now();
+        Object.entries(stored).forEach(([name, payload]) => {
+          if (!payload || !payload.data || !payload.savedAt) return;
+          if (now - payload.savedAt > WEATHER_CACHE_MAX_AGE) return;
+          if (!payload.data.fetchedAt) payload.data.fetchedAt = payload.savedAt;
+          weatherCache.set(name, payload.data);
+        });
+      } catch (error) { console.warn("天气缓存读取失败", error); }
+    }
+    function persistForecastWeather(name, entry) {
+      if (!entry || !["forecast", "moji"].includes(entry.source) || !entry.hourly || !entry.hourly.length) return;
+      try {
+        if (!entry.fetchedAt) entry.fetchedAt = Date.now();
+        const raw = localStorage.getItem(WEATHER_STORAGE_KEY);
+        const stored = raw ? JSON.parse(raw) : {};
+        stored[name] = { savedAt: Date.now(), data: entry };
+        localStorage.setItem(WEATHER_STORAGE_KEY, JSON.stringify(stored));
+      } catch (error) { console.warn("天气缓存写入失败", error); }
+    }
+
+    function buildFallbackWeather(stop, targetDate, metadata = {}) {
+      const altitude = Number.isFinite(stop.altitude) ? stop.altitude : 3500;
+      const latitudeCooling = Math.max(0, (stop.lat - 29) * 0.35);
+      const altitudeCooling = Math.max(0, (altitude - 1200) / 1000 * 5.8);
+      const westWarming = Math.max(0, (82 - stop.lng) * 0.25);
+      const dailyMean = 29 - altitudeCooling - latitudeCooling + westWarming;
+      const swing = altitude >= 4500 ? 8 : altitude >= 3500 ? 7 : 6;
+      const hourly = [];
+      for (let hour = 0; hour < 24; hour++) {
+        const phase = (hour - 15) / 24 * Math.PI * 2;
+        hourly.push({
+          hour, temp: Math.round((dailyMean + Math.cos(phase) * swing) * 10) / 10,
+          precipitationProbability: null, precipitation: null, rain: null, showers: null,
+          snowfall: null, weatherCode: null, cloudCover: null, windSpeed: null, windGust: null
+        });
+      }
+      const arrivalHour = parseArrivalHour(stop.time);
+      const closest = nearestHourly(hourly, Number.isFinite(arrivalHour) ? arrivalHour : 12);
+      return { temperature: closest.temp, wind: null, time: null, hourly, hourlyDate: targetDate, error: false, source: "estimate", ...metadata };
+    }
+
+    function weatherLabel(stop) {
+      const cached = weatherCache.get(stop.name);
+      if (!cached) return "加载中";
+      if (cached.temperature == null) return cached.error ? "暂无数据" : "获取中...";
+      const arrival = getArrivalForecast(stop, cached);
+      const temperature = arrival && Number.isFinite(arrival.temp) ? arrival.temp : cached.temperature;
+      return `${Math.round(temperature)}°C`;
+    }
+    function currentWeatherLabel(cached) {
+      if (!cached || !Number.isFinite(cached.currentTemperature)) return "";
+      return `墨迹当前 ${Math.round(cached.currentTemperature)}°C`;
+    }
+
+    function renderChartSvg(stop, targetDate, data) {
+      const w = 300, h = 140, pad = { top: 16, right: 12, bottom: 20, left: 32 };
+      const pw = w - pad.left - pad.right;
+      const ph = h - pad.top - pad.bottom;
+      const points = data.filter(d => Number.isFinite(d.temp));
+      if (!points.length) return '<p style="color:#8899a6;font-size:12px;text-align:center;">暂无温度曲线</p>';
+      const vals = points.map(d => d.temp);
+      const tMin = Math.min(...vals) - 2;
+      const tMax = Math.max(...vals) + 2;
+      const range = tMax - tMin || 1;
+      const xScale = i => pad.left + (i / Math.max(vals.length - 1, 1)) * pw;
+      const yScale = v => pad.top + ph - ((v - tMin) / range) * ph;
+      let path = "";
+      vals.forEach((v, i) => { path += `${i === 0 ? "M" : "L"}${xScale(i).toFixed(1)},${yScale(v).toFixed(1)} `; });
+      let area = path + `L${xScale(vals.length - 1).toFixed(1)},${pad.top + ph} L${xScale(0).toFixed(1)},${pad.top + ph} Z`;
+      const xTicks = [0, 6, 12, 18, vals.length - 1];
+      const yTicks = [Math.round(tMin), Math.round(tMax)];
+      let xLabels = "";
+      xTicks.forEach(i => {
+        const idx = Math.min(i, vals.length - 1);
+        xLabels += `<text x="${xScale(idx).toFixed(1)}" y="${h}" class="xlabel" text-anchor="middle">${points[idx].hour}h</text>`;
+      });
+      let yLabels = "";
+      yTicks.forEach(v => {
+        yLabels += `<text x="6" y="${yScale(v).toFixed(1) + 4}" class="ylabel" text-anchor="start">${v}°</text>`;
+      });
+      const parsedArrival = parseArrivalHour(stop.time);
+      const arrHour = Number.isFinite(parsedArrival) ? parsedArrival : 12;
+      let arrIdx = 0, bestDiff = Infinity;
+      for (let i = 0; i < points.length; i++) {
+        const diff = Math.abs(points[i].hour - arrHour);
+        if (diff < bestDiff) { bestDiff = diff; arrIdx = i; }
+      }
+      return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="${pad.left}" y="${pad.top}" width="${pw}" height="${ph}" fill="#f0f4f8" rx="3"/>
+        ${yTicks.map(v => `<line x1="${pad.left}" y1="${yScale(v).toFixed(1)}" x2="${pad.left + pw}" y2="${yScale(v).toFixed(1)}" stroke="#dde3ea" stroke-width="0.7"/>`).join("")}
+        <path d="${area}" fill="rgba(37,99,235,.1)" stroke="none"/>
+        <path d="${path}" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="${xScale(arrIdx).toFixed(1)}" cy="${yScale(vals[arrIdx]).toFixed(1)}" r="4" fill="#2563eb" stroke="white" stroke-width="2"/>
+        ${xLabels}${yLabels}
+        <text x="${xScale(arrIdx).toFixed(1)}" y="${yScale(vals[arrIdx]).toFixed(1) - 10}" fill="#2563eb" font-size="11" font-weight="700" text-anchor="middle">${Math.round(vals[arrIdx])}°</text>
+      </svg>`;
+    }
+
+    function popupHtml(stop) {
+      const cached = weatherCache.get(stop.name);
+      const arrival = cached ? getArrivalForecast(stop, cached) : null;
+      const risk = describeWeatherRisk(arrival, cached);
+      const weatherClass = risk.level === "danger" ? "weather-warn" : risk.level === "watch" ? "weather-watch" : "weather-ok";
+      const arrivalWind = arrival && Number.isFinite(arrival.windSpeed) ? arrival.windSpeed : cached && cached.wind;
+      const wind = !cached ? "待加载" : Number.isFinite(arrivalWind) ? `${Math.round(arrivalWind)} km/h` : "暂无";
+      const updated = !cached ? "待加载" : cached.currentUpdatedAt || (cached.time ? cached.time.replace("T", " ") : cached.source === "estimate" ? "接口失败，使用估算曲线" : "待加载");
+      const sourceLabel = cached && cached.source === "estimate" ? "估算" : cached && cached.source === "moji" ? "墨迹" : "预报";
+      const currentLabel = currentWeatherLabel(cached);
+      const targetDate = getDayDate(stop.day);
+      const dateLabel = fmtDateCN(targetDate);
+      const hasHourly = cached && cached.hourly && cached.hourly.length;
+      const chartSvg = hasHourly ? renderChartSvg(stop, targetDate, cached.hourly) : '<p style="color:#8899a6;font-size:12px;text-align:center;">暂无温度曲线</p>';
+      return `<div class="amap-info-content">
+        <h3 class="popup-title">${stop.name}</h3>
+        <div class="popup-grid">
+          <div class="popup-box"><b class="${weatherClass}">${weatherLabel(stop)}</b>${sourceLabel}温度</div>
+          <div class="popup-box"><b>${stop.altitude} m</b>参考海拔</div>
+          <div class="popup-box"><b>${stop.time}</b>计划到达</div>
+          <div class="popup-box"><b>${wind}</b>${sourceLabel}风速</div>
+        </div>
+        <div class="risk-line ${risk.level}">${risk.text}</div>
+        ${currentLabel ? `<p style="margin:0 0 4px; color:#2563eb; font-size:12px; font-weight:700;">${currentLabel} · 当前实况仅代表${cached.mojiCity || "关联城市"}，到达温度仍按计划时刻预报</p>` : ""}
+        <p style="margin:0 0 4px; line-height:1.55">${stop.desc}</p>
+        <p style="margin:0; color:#66727b; font-size:12px;">数据时间：${updated}${cached && cached.mojiCity ? ` · 墨迹城市：${cached.mojiCity}` : ""}</p>
+        <div class="chart-box">
+          <p class="chart-title">📈 ${dateLabel} 24h 温度变化 · 到达约 ${stop.time} · ${sourceLabel}</p>
+          ${chartSvg}
+        </div>
+      </div>`;
+    }
+
+    async function fetchMojiForecastEntry(stop, targetDate) {
+      const city = MOJI_CITY_BY_STOP[stop.name];
+      if (!city) return null;
+      const [cityId, cityName] = city;
+      let cachedRequest = mojiRequestCache.get(cityId);
+      if (!cachedRequest || Date.now() - cachedRequest.createdAt >= WEATHER_REFRESH_INTERVAL) {
+        const request = fetch(`${MOJI_PROXY_BASE}/api/moji?cityId=${cityId}&types=condition,forecast24hours,alert`, { cache: "no-store" })
+          .then(response => response.ok ? response.json() : null)
+          .catch(() => null);
+        cachedRequest = { createdAt: Date.now(), request };
+        mojiRequestCache.set(cityId, cachedRequest);
+      }
+      const payload = await cachedRequest.request;
+      const forecast = payload && payload.ok && payload.result && payload.result.forecast24hours;
+      const rows = forecast && forecast.data && Array.isArray(forecast.data.hourly) ? forecast.data.hourly : [];
+      const conditionPayload = payload && payload.ok && payload.result && payload.result.condition;
+      const condition = conditionPayload && conditionPayload.data && conditionPayload.data.condition;
+      const allowMojiTemperature = MOJI_HOURLY_STOPS.has(stop.name);
+      const currentTemperature = allowMojiTemperature && condition && Number.isFinite(Number(condition.temp)) ? Number(condition.temp) : null;
+      const currentUpdatedAt = allowMojiTemperature && condition && condition.updatetime ? condition.updatetime : null;
+      const conditionCheckedAt = Date.now();
+      const filtered = rows.filter(row => row.date === targetDate && Number.isFinite(Number(row.temp))).map(row => ({
+        hour: Number(row.hour),
+        temp: Number(row.temp),
+        precipitationProbability: Number.isFinite(Number(row.pop)) ? Number(row.pop) : null,
+        precipitation: Number.isFinite(Number(row.qpf)) ? Number(row.qpf) : null,
+        rain: Number.isFinite(Number(row.qpf)) ? Number(row.qpf) : null,
+        showers: null,
+        snowfall: Number.isFinite(Number(row.snow)) ? Number(row.snow) : null,
+        weatherCode: null,
+        condition: row.condition || "天气待更新",
+        cloudCover: null,
+        windSpeed: Number.isFinite(Number(row.windSpeed)) ? Number(row.windSpeed) : null,
+        windGust: null
+      }));
+      const alertPayload = payload.result && payload.result.alert;
+      const alertData = alertPayload && alertPayload.data ? alertPayload.data : null;
+      if (!MOJI_HOURLY_STOPS.has(stop.name) || !filtered.length) {
+        const fallbackReason = !MOJI_HOURLY_STOPS.has(stop.name)
+          ? "该站点位于无人区，未直接套用附近县城温度，经纬度预报暂未返回"
+          : "该行程日期超出墨迹未来约 24 小时逐小时预报范围，经纬度预报暂未返回";
+        return { hourly: null, mojiCity: cityName, alerts: alertData, fallbackReason, currentTemperature, currentUpdatedAt, conditionCheckedAt };
+      }
+      const arrivalHour = parseArrivalHour(stop.time);
+      const closest = nearestHourly(filtered, Number.isFinite(arrivalHour) ? arrivalHour : new Date().getHours());
+      return {
+        temperature: closest.temp,
+        wind: closest.windSpeed,
+        time: rows[0] && rows[0].updatetime ? rows[0].updatetime : null,
+        hourly: filtered,
+        hourlyDate: targetDate,
+        error: false,
+        source: "moji",
+        mojiCity: cityName,
+        alerts: alertData,
+        currentTemperature,
+        currentUpdatedAt,
+        conditionCheckedAt,
+        fetchedAt: Date.now()
+      };
+    }
+
+    async function fetchForecastJson(stop) {
+      const current = "temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation,rain,showers,snowfall,weather_code";
+      const hourly = "temperature_2m,precipitation_probability,precipitation,rain,showers,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m";
+      const weatherLat = Number.isFinite(stop.wgsLat) ? stop.wgsLat : stop.lat;
+      const weatherLng = Number.isFinite(stop.wgsLng) ? stop.wgsLng : stop.lng;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${weatherLat}&longitude=${weatherLng}&current=${current}&hourly=${hourly}&timezone=Asia%2FShanghai&forecast_days=16`;
+      if (!window.AbortController) {
+        const res = await fetch(url);
+        return res.ok ? res.json() : null;
+      }
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 4500);
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        return res.ok ? res.json() : null;
+      } finally { window.clearTimeout(timeout); }
+    }
+
+    async function fetchWeather(stop, marker, quiet) {
+      const targetDate = getDayDate(stop.day);
+      if (weatherCache.has(stop.name)) {
+        const cached = weatherCache.get(stop.name);
+        const fresh = cached.fetchedAt && Date.now() - cached.fetchedAt < WEATHER_REFRESH_INTERVAL;
+        const currentConditionReady = !MOJI_HOURLY_STOPS.has(stop.name) || Boolean(cached.conditionCheckedAt);
+        if (fresh && currentConditionReady && ["forecast", "moji"].includes(cached.source) && cached.temperature != null && cached.hourly && cached.hourly.length && cached.hourlyDate === targetDate) {
+          if (marker) updateMarkerPopup(stop, marker);
+          syncWeatherText();
+          return;
+        }
+      } else {
+        weatherCache.set(stop.name, buildFallbackWeather(stop, targetDate));
+        if (marker) updateMarkerPopup(stop, marker);
+        syncWeatherText();
+      }
+      if (weatherLoading.has(stop.name)) {
+        if (marker) updateMarkerPopup(stop, marker);
+        syncWeatherText();
+        return;
+      }
+      weatherLoading.add(stop.name);
+      let mojiEntry = null;
+      try {
+        mojiEntry = await fetchMojiForecastEntry(stop, targetDate);
+        if (mojiEntry && mojiEntry.hourly && mojiEntry.hourly.length) {
+          weatherCache.set(stop.name, mojiEntry);
+          persistForecastWeather(stop.name, mojiEntry);
+          if (marker) updateMarkerPopup(stop, marker);
+          syncWeatherText();
+          if (lastPosition) updateNavigationPanel(lastPosition.lat, lastPosition.lng, lastPosition.accuracy);
+          return;
+        }
+        const data = await fetchForecastJson(stop);
+        const entry = { temperature: null, wind: null, time: null, hourly: null, hourlyDate: null, error: false, source: "forecast", fetchedAt: Date.now() };
+        if (mojiEntry) {
+          entry.alerts = mojiEntry.alerts;
+          entry.mojiCity = mojiEntry.mojiCity;
+          entry.currentTemperature = mojiEntry.currentTemperature;
+          entry.currentUpdatedAt = mojiEntry.currentUpdatedAt;
+          entry.conditionCheckedAt = mojiEntry.conditionCheckedAt;
+        }
+        if (data && data.current) {
+          entry.temperature = data.current.temperature_2m;
+          entry.wind = data.current.wind_speed_10m;
+          entry.time = data.current.time;
+        } else if (data && data.current_weather) {
+          entry.temperature = data.current_weather.temperature;
+          entry.wind = data.current_weather.windspeed;
+          entry.time = data.current_weather.time;
+        }
+        if (data && data.hourly) {
+          const times = data.hourly.time || [];
+          const temps = data.hourly.temperature_2m || [];
+          const filtered = [];
+          for (let i = 0; i < times.length; i++) {
+            if (times[i].startsWith(targetDate) && Number.isFinite(temps[i])) {
+              const hour = Number(times[i].split("T")[1].slice(0, 2));
+              filtered.push({
+                hour, temp: temps[i],
+                precipitationProbability: data.hourly.precipitation_probability ? data.hourly.precipitation_probability[i] : null,
+                precipitation: data.hourly.precipitation ? data.hourly.precipitation[i] : null,
+                rain: data.hourly.rain ? data.hourly.rain[i] : null,
+                showers: data.hourly.showers ? data.hourly.showers[i] : null,
+                snowfall: data.hourly.snowfall ? data.hourly.snowfall[i] : null,
+                weatherCode: data.hourly.weather_code ? data.hourly.weather_code[i] : null,
+                cloudCover: data.hourly.cloud_cover ? data.hourly.cloud_cover[i] : null,
+                windSpeed: data.hourly.wind_speed_10m ? data.hourly.wind_speed_10m[i] : null,
+                windGust: data.hourly.wind_gusts_10m ? data.hourly.wind_gusts_10m[i] : null
+              });
+            }
+          }
+          if (filtered.length) { entry.hourly = filtered; entry.hourlyDate = targetDate; }
+        }
+        if (entry.temperature == null && entry.hourly && entry.hourly.length) {
+          const arrivalHour = parseArrivalHour(stop.time);
+          const best = nearestHourly(entry.hourly, Number.isFinite(arrivalHour) ? arrivalHour : new Date().getHours());
+          entry.temperature = best.temp;
+        }
+        const finalEntry = entry.hourly && entry.hourly.length ? entry : buildFallbackWeather(stop, targetDate, {
+          alerts: entry.alerts,
+          mojiCity: entry.mojiCity,
+          currentTemperature: entry.currentTemperature,
+          currentUpdatedAt: entry.currentUpdatedAt,
+          conditionCheckedAt: entry.conditionCheckedAt,
+          fallbackReason: mojiEntry && mojiEntry.fallbackReason
+            ? mojiEntry.fallbackReason
+            : "经纬度天气服务连接失败或未返回该日期预报"
+        });
+        weatherCache.set(stop.name, finalEntry);
+        persistForecastWeather(stop.name, finalEntry);
+      } catch (error) {
+        weatherCache.set(stop.name, buildFallbackWeather(stop, targetDate, {
+          alerts: mojiEntry && mojiEntry.alerts,
+          mojiCity: mojiEntry && mojiEntry.mojiCity,
+          currentTemperature: mojiEntry && mojiEntry.currentTemperature,
+          currentUpdatedAt: mojiEntry && mojiEntry.currentUpdatedAt,
+          conditionCheckedAt: mojiEntry && mojiEntry.conditionCheckedAt,
+          fallbackReason: mojiEntry && mojiEntry.fallbackReason
+            ? mojiEntry.fallbackReason
+            : "天气服务请求超时或网络连接失败"
+        }));
+        if (!quiet) console.warn(error);
+      } finally { weatherLoading.delete(stop.name); }
+      if (marker) updateMarkerPopup(stop, marker);
+      syncWeatherText();
+      if (lastPosition) updateNavigationPanel(lastPosition.lat, lastPosition.lng, lastPosition.accuracy);
+    }
+
+    /* ==================== 地图渲染（AMap 版本） ==================== */
+
+    function clearAllLayers() {
+      activePolylines.forEach(p => { try { map.remove(p); } catch(e) {} });
+      activeMarkers.forEach(m => { try { map.remove(m); } catch(e) {} });
+      activeCircles.forEach(c => { try { map.remove(c); } catch(e) {} });
+      activePolylines = [];
+      activeMarkers = [];
+      activeCircles = [];
+      focusedStopKey = null;
+    }
+
+    function getStopKey(stop) {
+      return `${stop.day}-${stop.index}`;
+    }
+
+    function markerContent(stop) {
+      const focusedClass = getStopKey(stop) === focusedStopKey ? " focused" : "";
+      return `<div class="pin${focusedClass}" style="background:${stop.color}"><span>${stop.day}.${stop.index}</span></div>`;
+    }
+
+    function refreshMarkerFocus() {
+      const selected = days.find(day => day.day === activeDay);
+      const selectedRaw = daysRaw.find(day => day.day === activeDay);
+      if (!selected) return;
+      activeMarkers.forEach((marker, index) => {
+        const rawStop = selected.stops[index];
+        if (!marker || !rawStop) return;
+        const stop = {
+          day: selected.day,
+          index: index + 1,
+          name: rawStop[0],
+          lat: rawStop[1],
+          lng: rawStop[2],
+          wgsLat: selectedRaw ? selectedRaw.stops[index][1] : rawStop[1],
+          wgsLng: selectedRaw ? selectedRaw.stops[index][2] : rawStop[2],
+          altitude: rawStop[3],
+          time: rawStop[4],
+          desc: rawStop[5],
+          color: dayColors[selected.day - 1]
+        };
+        marker.setContent(markerContent(stop));
+        setMarkerZIndex(marker, getStopKey(stop) === focusedStopKey ? 1000 : 100);
+      });
+    }
+
+    function setFocusedStop(stop) {
+      focusedStopKey = getStopKey(stop);
+      refreshMarkerFocus();
+    }
+
+    function setMarkerZIndex(marker, zIndex) {
+      if (typeof marker.setzIndex === "function") {
+        marker.setzIndex(zIndex);
+      } else if (typeof marker.setZIndex === "function") {
+        marker.setZIndex(zIndex);
+      }
+    }
+
+    function openStopInfo(marker, stop) {
+      infoWindow.setContent(popupHtml(stop));
+      infoWindow.open(map, marker.getPosition());
+    }
+
+    function focusMapOnStop(stop) {
+      const mobile = isMobileLayout();
+      map.setZoomAndCenter(mobile ? 10 : 9, [stop.lng, stop.lat]);
+      if (!mobile || typeof map.getSize !== "function" || typeof map.containerToLngLat !== "function") return;
+      window.setTimeout(() => {
+        const size = map.getSize();
+        const width = typeof size.getWidth === "function" ? size.getWidth() : size.width;
+        const height = typeof size.getHeight === "function" ? size.getHeight() : size.height;
+        if (!width || !height) return;
+        const lowerOffset = Math.min(Math.max(height * 0.18, 96), 150);
+        const shiftedCenter = map.containerToLngLat(new AMap.Pixel(width / 2, height / 2 - lowerOffset));
+        map.setCenter(shiftedCenter);
+      }, 90);
+    }
+
+    function updateMarkerPopup(stop, marker) {
+      marker.setContent(markerContent(stop));
+    }
+
+    function draw(dayNumber) {
+      activeDay = dayNumber;
+      clearAllLayers();
+
+      const selected = days.find(d => d.day === dayNumber);
+      const selectedRaw = daysRaw.find(d => d.day === dayNumber);
+      const stops = selected.stops.map((stop, index) => ({
+        day: selected.day,
+        index: index + 1,
+        name: stop[0],
+        lat: stop[1],
+        lng: stop[2],
+        wgsLat: selectedRaw ? selectedRaw.stops[index][1] : stop[1],
+        wgsLng: selectedRaw ? selectedRaw.stops[index][2] : stop[2],
+        altitude: stop[3],
+        time: stop[4],
+        desc: stop[5],
+        color: dayColors[selected.day - 1]
+      }));
+
+      // 绘制所有天的路线（淡色 + 虚线非选中天）
+      days.forEach(day => {
+        const coords = day.stops.map(s => [s[2], s[1]]); // AMap: [lng, lat]
+        const isActive = day.day === dayNumber;
+        const polyline = new AMap.Polyline({
+          path: coords,
+          strokeColor: dayColors[day.day - 1],
+          strokeWeight: isActive ? 5 : 2,
+          strokeOpacity: isActive ? 0.95 : 0.28,
+          strokeStyle: isActive ? "solid" : "dashed",
+          lineJoin: "round",
+          lineCap: "round"
+        });
+        map.add(polyline);
+        activePolylines.push(polyline);
+      });
+
+      // 绘制当天的站点 Marker
+      stops.forEach(stop => {
+        const position = new AMap.LngLat(stop.lng, stop.lat);
+        const marker = new AMap.Marker({
+          position: position,
+          content: markerContent(stop),
+          offset: new AMap.Pixel(-17, -32),
+          zIndex: 100
+        });
+        marker.on("click", function () {
+          setFocusedStop(stop);
+          openStopInfo(marker, stop);
+        });
+        map.add(marker);
+        activeMarkers.push(marker);
+        updateMarkerPopup(stop, marker);
+        fetchWeather(stop, marker, true);
+      });
+
+      renderPanel();
+      renderTabs();
+    }
+
+    function renderTabs() {
+      document.getElementById("tabs").innerHTML = days.map(day =>
+        `<button class="tab ${day.day === activeDay ? "active" : ""}" onclick="selectDay(${day.day})"><span class="tab-date">${fmtDateCN(getDayDate(day.day))}</span>Day ${day.day}</button>`
+      ).join("");
+    }
+
+    function renderPanel() {
+      const selected = days.find(day => day.day === activeDay);
+      document.getElementById("panel").innerHTML = `
+        <article class="day-card">
+          <div class="day-title">
+            <h2>${fmtDateCN(getDayDate(selected.day))} · Day ${selected.day}<br>${selected.title}</h2>
+            <span class="pill">${selected.distance}</span>
+          </div>
+          <p class="route-summary">${selected.note}</p>
+          ${selected.stops.map((stop, index) => `
+            <div class="stop" onclick="focusStop(${index})">
+              <div class="num">${index + 1}</div>
+              <div>
+                <h3>${stop[0]}</h3>
+                <div class="meta">
+                  <span>${stop[4]}</span>
+                  <span>${stop[3]} m</span>
+                  <span id="temp-${selected.day}-${index}">温度加载中</span>
+                  <span id="risk-${selected.day}-${index}">天气风险加载中</span>
+                </div>
+                <p class="desc">${stop[5]}</p>
+              </div>
+            </div>
+          `).join("")}
+        </article>
+      `;
+      syncWeatherText();
+    }
+
+    function syncWeatherText() {
+      const selected = days.find(day => day.day === activeDay);
+      selected.stops.forEach((stop, index) => {
+        const el = document.getElementById(`temp-${selected.day}-${index}`);
+        const cached = weatherCache.get(stop[0]);
+        const temperaturePrefix = cached && cached.source === "estimate" ? "估算" : cached && cached.source === "moji" ? "墨迹到达" : "到达约";
+        const currentLabel = currentWeatherLabel(cached);
+        if (el) el.textContent = currentLabel
+          ? `${currentLabel} / ${temperaturePrefix} ${weatherLabel({ name: stop[0], day: selected.day, time: stop[4] })}`
+          : `${temperaturePrefix} ${weatherLabel({ name: stop[0], day: selected.day, time: stop[4] })}`;
+        const riskEl = document.getElementById(`risk-${selected.day}-${index}`);
+        if (riskEl) {
+          const stopObj = { day: selected.day, index: index + 1, name: stop[0], lat: stop[1], lng: stop[2], altitude: stop[3], time: stop[4], desc: stop[5] };
+          const risk = describeWeatherRisk(getArrivalForecast(stopObj, cached), cached);
+          riskEl.textContent = risk.level === "danger" ? "高风险天气" : risk.level === "watch" ? "天气需关注" : "到达天气平稳";
+        }
+      });
+    }
+
+    function selectDay(dayNumber) {
+      draw(dayNumber);
+      fitActiveDay();
+      if (lastPosition) updateNavigationPanel(lastPosition.lat, lastPosition.lng, lastPosition.accuracy);
+      closeMobilePanel();
+    }
+
+    function focusStop(index) {
+      const selected = days.find(day => day.day === activeDay);
+      const stop = selected.stops[index];
+      if (!stop) return;
+      closeMobilePanel();
+      // 打开对应 marker 的 InfoWindow
+      const marker = activeMarkers[index];
+      if (marker) {
+        const stopObj = allStops.find(s => s.day === activeDay && s.index === index + 1);
+        if (stopObj) {
+          setFocusedStop(stopObj);
+          focusMapOnStop(stopObj);
+          window.setTimeout(() => {
+            openStopInfo(marker, stopObj);
+          }, isMobileLayout() ? 260 : 180);
+          return;
+        }
+      }
+      map.setZoomAndCenter(9, [stop[2], stop[1]]);
+      closeMobilePanel();
+    }
+
+    function fitActiveDay() {
+      const selected = days.find(day => day.day === activeDay);
+      if (!selected || !selected.stops.length) return;
+      const overlays = [
+        ...activePolylines.filter(Boolean),
+        ...activeMarkers.filter(Boolean)
+      ];
+      map.setFitView(overlays, false, [60, 60, 60, 60]);
+    }
+
+    document.getElementById("fitAll").addEventListener("click", () => {
+      if (!map || !allStops.length) return;
+      map.setFitView(activePolylines.filter(Boolean), false, [60, 60, 60, 60]);
+    });
+
+    function selectTodayTripDay() {
+      const state = getTripDayState(new Date());
+      if (activeDay !== state.day) draw(state.day);
+      fitActiveDay();
+      if (lastPosition) updateNavigationPanel(lastPosition.lat, lastPosition.lng, lastPosition.accuracy);
+    }
+    document.getElementById("fitDay").addEventListener("click", selectTodayTripDay);
+
+    /* ==================== 模拟位置（与原版相同） ==================== */
+    function initSimulator() {
+      simDay.innerHTML = days.map(day => `<option value="${day.day}">Day ${day.day} · ${fmtDateCN(getDayDate(day.day))}</option>`).join("");
+      const state = getTripDayState(new Date());
+      simDay.value = String(state.day);
+      renderSimStops();
+    }
+    function renderSimStops() {
+      const dayNumber = Number(simDay.value);
+      const stops = getDayStopObjects(dayNumber);
+      simStop.innerHTML = stops.map(stop => `<option value="${stop.index - 1}">${stop.index}. ${stop.name} · ${stop.time}</option>`).join("");
+    }
+    function applyManualSimulation() {
+      const dayNumber = Number(simDay.value);
+      const stopIndex = Number(simStop.value);
+      const stops = getDayStopObjects(dayNumber);
+      const stop = stops[stopIndex];
+      if (!stop) return;
+      if (tracking && watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; tracking = false; }
+      manualMode = true;
+      if (activeDay !== dayNumber) draw(dayNumber);
+      locBtn.textContent = "📍 定位";
+      locBtn.style.background = "#2563eb";
+      locBtn.style.borderColor = "#2563eb";
+      locPanel.classList.add("show");
+      updatePosition({ coords: { latitude: stop.lat, longitude: stop.lng, accuracy: 30 }, gcj02: true });
+      map.setZoomAndCenter(10, [stop.lng, stop.lat]);
+      simStatus.textContent = `已用 ${stop.name} 作为模拟当前位置。`;
+    }
+    function clearManualSimulation() {
+      manualMode = false;
+      lastPosition = null;
+      if (!tracking) {
+        if (userMarker) { map.remove(userMarker); userMarker = null; }
+        if (userCircle) { map.remove(userCircle); userCircle = null; }
+        locPanel.classList.remove("show");
+      }
+      simStatus.textContent = "已清除模拟位置。";
+    }
+
+    /* ==================== 实时定位（AMap 版本） ==================== */
+    function toggleLocation() {
+      if (tracking) { stopTracking(); return; }
+      if (!navigator.geolocation) { alert("浏览器不支持地理定位，请使用手机或现代浏览器打开。"); return; }
+      locBtn.textContent = "⏳ 定位中…";
+      navigator.geolocation.getCurrentPosition(startTracking, handleGeoError, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+    }
+    function startTracking(pos) {
+      tracking = true;
+      const state = getTripDayState(new Date());
+      if (activeDay !== state.day) draw(state.day);
+      locBtn.textContent = "📍 已定位";
+      locBtn.style.background = "#0f766e";
+      locBtn.style.borderColor = "#0f766e";
+      locPanel.classList.add("show");
+      updatePosition(pos);
+      const gcj = wgs84ToGcj02(pos.coords.latitude, pos.coords.longitude);
+      map.setZoomAndCenter(13, [gcj.lng, gcj.lat]);
+      watchId = navigator.geolocation.watchPosition(updatePosition, handleGeoError, { enableHighAccuracy: true, timeout: 30000, maximumAge: 10000 });
+    }
+    function stopTracking() {
+      tracking = false;
+      if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+      if (userMarker) { map.remove(userMarker); userMarker = null; }
+      if (userCircle) { map.remove(userCircle); userCircle = null; }
+      locBtn.textContent = "📍 定位";
+      locBtn.style.background = "#2563eb";
+      locBtn.style.borderColor = "#2563eb";
+      locPanel.classList.remove("show");
+      lastPosition = null;
+    }
+    function updatePosition(pos) {
+      const rawLat = pos.coords.latitude;
+      const rawLng = pos.coords.longitude;
+      const gcj = pos.gcj02 ? { lat: rawLat, lng: rawLng } : wgs84ToGcj02(rawLat, rawLng);
+      const lat = gcj.lat;
+      const lng = gcj.lng;
+      const accuracy = pos.coords.accuracy;
+      lastPosition = { lat, lng, accuracy };
+
+      if (userMarker) map.remove(userMarker);
+      if (userCircle) map.remove(userCircle);
+
+      userMarker = new AMap.Marker({
+        position: [lng, lat],
+        content: '<div class="loc-dot"></div>',
+        offset: new AMap.Pixel(-9, -9),
+        zIndex: 200
+      });
+      map.add(userMarker);
+
+      userCircle = new AMap.Circle({
+        center: [lng, lat],
+        radius: accuracy,
+        strokeColor: "rgba(37,99,235,.35)",
+        strokeWeight: 1,
+        fillColor: "rgba(37,99,235,.08)",
+        fillOpacity: 0.08
+      });
+      map.add(userCircle);
+
+      const nearest = findNearestStop(lat, lng);
+      if (nearest) {
+        const distKm = haversine(lat, lng, nearest.lat, nearest.lng);
+        locNearest.textContent = `${nearest.name} (Day ${nearest.day})`;
+        locDist.textContent = distKm < 100 ? `${Math.round(distKm * 10) / 10} km` : `${Math.round(distKm)} km`;
+        locAcc.textContent = accuracy < 1000 ? `±${Math.round(accuracy)} m` : `±${(accuracy / 1000).toFixed(1)} km`;
+      }
+      updateNavigationPanel(lat, lng, accuracy);
+    }
+
+    /* ==================== 导航面板（与原版相同） ==================== */
+    function updateNavigationPanel(lat, lng, accuracy, now = new Date()) {
+      const next = findNextDestination(lat, lng, now);
+      if (!next || next.completed) {
+        locNextName.textContent = next && next.completed ? `Day ${activeDay} 已接近终点` : "未找到下一目的地";
+        locNextDist.textContent = "—"; locEta.textContent = "—"; locArrive.textContent = "—";
+        locNextRisk.className = "loc-risk";
+        locNextRisk.textContent = next && next.completed ? "当天路线基本完成，请选择下一天查看后续目的地。" : "无法计算天气风险。";
+        const nextDayStops = activeDay < days.length ? getDayStopObjects(activeDay + 1) : [];
+        if (nextDayStops.length) {
+          const nextDay = { target: nextDayStops[0] };
+          renderUpcomingDestinations(lat, lng, now, nextDay);
+          scheduleWeatherRiskScan(nextDay);
+        } else {
+          locUpcoming.textContent = "暂无前方目的地。";
+        }
+        locEtaNote.textContent = `${tripDayStatusText(next ? next.state : getTripDayState())} ETA 优先使用高德驾车路径规划，真实行车时间请以导航为准。`;
+        return;
+      }
+      const target = next.target;
+      const travel = estimateTravel(lat, lng, target);
+      renderTravelSummary(target, travel, next);
+      renderUpcomingDestinations(lat, lng, now, next);
+      upgradeTravelWithAmapRoute(lat, lng, target, next);
+      scheduleWeatherRiskScan(next);
+    }
+    function renderTravelSummary(target, travel, next) {
+      const cached = weatherCache.get(target.name);
+      const etaForecast = getEtaForecast(cached, travel.arrival);
+      const risk = describeWeatherRisk(etaForecast, cached);
+      locNextName.textContent = `${target.name} (Day ${target.day}.${target.index})`;
+      locNextDist.textContent = formatKm(travel.roadKm);
+      locEta.textContent = formatDuration(travel.minutes);
+      locArrive.textContent = formatArrivalTime(travel.arrival);
+      locNextRisk.className = `loc-risk ${risk.level}`;
+      locNextRisk.textContent = risk.text;
+      const offRoute = next.distanceToRoute > 20 ? `当前离 Day ${activeDay} 路线约 ${formatKm(next.distanceToRoute)}，` : "";
+      if (travel.source === "amap") {
+        locEtaNote.textContent = `${tripDayStatusText(next.state)} ${offRoute}ETA 来自高德驾车路径规划；天气按高德预计到达时间匹配。`;
+      } else {
+        locEtaNote.textContent = `${tripDayStatusText(next.state)} ${offRoute}高德路线加载中，暂用直线距离 x ${travel.factor.toFixed(2)} 和 ${Math.round(travel.speed)} km/h 估算。`;
+      }
+    }
+    async function upgradeTravelWithAmapRoute(lat, lng, target, next) {
+      const travel = await fetchAmapDrivingTravel(lat, lng, target);
+      if (!travel || !lastPosition) return;
+      const stillSameTarget = locNextName.textContent.includes(target.name);
+      if (!stillSameTarget) return;
+      renderTravelSummary(target, travel, next);
+    }
+    function renderUpcomingDestinations(lat, lng, now, next) {
+      const upcoming = getForwardStops(next, 3);
+      if (!upcoming.length) { locUpcoming.textContent = "暂无前方目的地。"; return; }
+      locUpcoming.innerHTML = upcoming.map(stop => {
+        if (!weatherCache.has(stop.name)) weatherCache.set(stop.name, buildFallbackWeather(stop, getDayDate(stop.day)));
+        if (!weatherLoading.has(stop.name)) fetchWeather(stop, null, true);
+        const travel = estimateTravel(lat, lng, stop);
+        const cached = weatherCache.get(stop.name);
+        const risk = describeWeatherRisk(getEtaForecast(cached, travel.arrival), cached);
+        return `<div class="upcoming-item ${risk.level}" id="upcoming-${stop.day}-${stop.index}">
+          <b>${stop.index}. ${stop.name}</b>
+          ${formatDuration(travel.minutes)} · ${formatArrivalTime(travel.arrival)} · 估算 · ${risk.text.replace("到达时段天气：", "")}
+        </div>`;
+      }).join("");
+      upcoming.forEach(stop => upgradeUpcomingWithAmapRoute(lat, lng, stop));
+    }
+    function getForwardStops(next, limit = 3) {
+      if (!next || !next.target) return [];
+      const result = [];
+      for (let dayNumber = next.target.day; dayNumber <= days.length && result.length < limit; dayNumber++) {
+        const stops = getDayStopObjects(dayNumber);
+        const startIndex = dayNumber === next.target.day ? Math.max(0, next.target.index - 1) : 0;
+        result.push(...stops.slice(startIndex, startIndex + limit - result.length));
+      }
+      return result;
+    }
+    function scheduleWeatherRiskScan(next) {
+      if (!next || !next.target || Date.now() - lastWeatherRiskScanAt < WEATHER_RISK_SCAN_INTERVAL) return;
+      lastWeatherRiskScanAt = Date.now();
+      const forward = getForwardStops(next, 12).filter(stop => stop.day <= next.target.day + 1);
+      Promise.all(forward.map(stop => fetchWeather(stop, null, true))).then(() => showWeatherRiskAlert(forward));
+    }
+    function getStopWindowRisk(stop, cached) {
+      if (!cached) return { level: "", text: "天气待加载。" };
+      const alertRisk = describeWeatherRisk(null, cached);
+      if (alertRisk.level === "danger" && getMojiAlertText(cached.alerts)) return alertRisk;
+      const arrivalHour = parseArrivalHour(stop.time);
+      const relevant = (cached.hourly || []).filter(hour =>
+        !Number.isFinite(arrivalHour) || Math.abs(hour.hour - arrivalHour) <= 2
+      );
+      let best = describeWeatherRisk(getArrivalForecast(stop, cached), cached);
+      for (const hour of relevant) {
+        const risk = describeWeatherRisk(hour, cached);
+        if (risk.level === "danger") return risk;
+        if (risk.level === "watch") best = risk;
+      }
+      return best;
+    }
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+    }
+    function showWeatherRiskAlert(stops) {
+      const risks = [];
+      const seen = new Set();
+      stops.forEach(stop => {
+        const cached = weatherCache.get(stop.name);
+        const risk = getStopWindowRisk(stop, cached);
+        if (risk.level !== "danger") return;
+        const text = risk.text.replace("到达时段天气：", "");
+        const key = `${stop.day}|${text}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        risks.push({ stop, text });
+      });
+      if (!risks.length) return;
+      const signature = risks.map(item => `${item.stop.day}.${item.stop.index}:${item.text}`).join("|");
+      try {
+        const previous = JSON.parse(localStorage.getItem(WEATHER_ALERT_STORAGE_KEY) || "null");
+        if (previous && previous.signature === signature && Date.now() - previous.shownAt < WEATHER_REFRESH_INTERVAL) return;
+        localStorage.setItem(WEATHER_ALERT_STORAGE_KEY, JSON.stringify({ signature, shownAt: Date.now() }));
+      } catch (error) {}
+      weatherAlertList.innerHTML = risks.map(item =>
+        `<div class="weather-alert-item"><b>Day ${item.stop.day}.${item.stop.index} ${escapeHtml(item.stop.name)}</b><br>${escapeHtml(item.text)}</div>`
+      ).join("");
+      weatherAlertModal.classList.add("show");
+    }
+    async function upgradeUpcomingWithAmapRoute(lat, lng, stop) {
+      const travel = await fetchAmapDrivingTravel(lat, lng, stop);
+      const el = document.getElementById(`upcoming-${stop.day}-${stop.index}`);
+      if (!travel || !el) return;
+      const cached = weatherCache.get(stop.name);
+      const risk = describeWeatherRisk(getEtaForecast(cached, travel.arrival), cached);
+      el.className = `upcoming-item ${risk.level}`;
+      el.innerHTML = `<b>${stop.index}. ${stop.name}</b>${formatDuration(travel.minutes)} · ${formatArrivalTime(travel.arrival)} · 高德 · ${risk.text.replace("到达时段天气：", "")}`;
+    }
+
+    /* ==================== 距离与路径计算（与原版相同） ==================== */
+    function getDayStopObjects(dayNumber) {
+      const day = days.find(d => d.day === dayNumber);
+      if (!day) return [];
+      return day.stops.map((stop, index) => ({
+        day: day.day, index: index + 1,
+        name: stop[0], lat: stop[1], lng: stop[2],
+        altitude: stop[3], time: stop[4], desc: stop[5],
+        color: dayColors[day.day - 1]
+      }));
+    }
+    function findTimeBasedTargetIndex(stops, now = new Date()) {
+      const state = getTripDayState(now);
+      if (state.phase === "before") return 0;
+      if (state.phase === "after") return stops.length;
+      if (activeDay !== state.day) return 0;
+      const nowHour = now.getHours() + now.getMinutes() / 60;
+      for (let i = 0; i < stops.length; i++) {
+        const planned = parseArrivalHour(stops[i].time);
+        if (Number.isFinite(planned) && planned > nowHour) return i;
+      }
+      return stops.length;
+    }
+    function findRouteBasedTargetIndex(lat, lng, stops) {
+      const arrivedKm = 1.2;
+      let nearest = { stop: stops[0], pos: 0, distKm: Infinity };
+      stops.forEach((stop, pos) => {
+        const distKm = haversine(lat, lng, stop.lat, stop.lng);
+        if (distKm < nearest.distKm) nearest = { stop, pos, distKm };
+      });
+      if (nearest.distKm <= arrivedKm) return { index: nearest.pos + 1, distanceToRoute: nearest.distKm, nearest };
+      let bestSegment = null;
+      for (let i = 0; i < stops.length - 1; i++) {
+        const seg = distanceToSegmentKm(lat, lng, stops[i], stops[i + 1]);
+        if (!bestSegment || seg.distKm < bestSegment.distKm) bestSegment = { ...seg, i };
+      }
+      if (!bestSegment) return { index: nearest.pos, distanceToRoute: nearest.distKm, nearest };
+      const index = bestSegment.t <= 0.05 ? bestSegment.i : bestSegment.i + 1;
+      return { index, distanceToRoute: Math.min(bestSegment.distKm, nearest.distKm), nearest };
+    }
+    function findNextDestination(lat, lng, now = new Date()) {
+      const stops = getDayStopObjects(activeDay);
+      if (!stops.length) return null;
+      const state = getTripDayState(now);
+      const timeIndex = findTimeBasedTargetIndex(stops, now);
+      const routeGuess = findRouteBasedTargetIndex(lat, lng, stops);
+      const offRoute = routeGuess.distanceToRoute > 25;
+      const atKnownStop = routeGuess.nearest && routeGuess.nearest.distKm <= 1.2;
+      let targetPos = timeIndex;
+      if (atKnownStop) targetPos = routeGuess.index;
+      else if (state.phase === "active" && activeDay === state.day && !offRoute) targetPos = Math.max(timeIndex, routeGuess.index);
+      else if (state.phase === "before") targetPos = 0;
+      else if (activeDay !== state.day) targetPos = routeGuess.index;
+      if (targetPos >= stops.length) return { completed: true, distanceToRoute: routeGuess.distanceToRoute, state, offRoute };
+      return { target: stops[Math.min(targetPos, stops.length - 1)], distanceToRoute: routeGuess.distanceToRoute, state, offRoute, atKnownStop, timeIndex, routeIndex: routeGuess.index };
+    }
+    function distanceToSegmentKm(lat, lng, start, end) {
+      const refLat = ((lat + start.lat + end.lat) / 3) * Math.PI / 180;
+      const toXY = (pLat, pLng) => ({ x: pLng * Math.cos(refLat) * 111.32, y: pLat * 110.57 });
+      const p = toXY(lat, lng), a = toXY(start.lat, start.lng), b = toXY(end.lat, end.lng);
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy || 1;
+      const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+      const proj = { x: a.x + t * dx, y: a.y + t * dy };
+      return { distKm: Math.hypot(p.x - proj.x, p.y - proj.y), t };
+    }
+    function estimateTravel(lat, lng, target) {
+      const straightKm = haversine(lat, lng, target.lat, target.lng);
+      const factor = target.altitude >= 4500 ? 1.5 : target.altitude >= 3500 ? 1.38 : 1.25;
+      const roadKm = Math.max(straightKm, straightKm * factor);
+      let speed = target.altitude >= 4500 ? 38 : target.altitude >= 3500 ? 45 : 55;
+      if (roadKm < 15) speed = Math.min(speed, 35);
+      const minutes = Math.max(5, Math.round((roadKm / speed) * 60));
+      return { straightKm, roadKm, factor, speed, minutes, arrival: new Date(Date.now() + minutes * 60 * 1000), source: "estimate" };
+    }
+    function routeCacheKey(lat, lng, target) { return `${lat.toFixed(4)},${lng.toFixed(4)}>${target.name}`; }
+
+    /* 高德驾车路径规划（高德版内部坐标已统一为 GCJ-02，不再二次转换） */
+    async function fetchAmapDrivingTravel(lat, lng, target) {
+      if (!AMAP_WEB_SERVICE_KEY) return null;
+      const key = routeCacheKey(lat, lng, target);
+      if (drivingRouteCache.has(key)) return drivingRouteCache.get(key);
+      const params = new URLSearchParams({
+        key: AMAP_WEB_SERVICE_KEY,
+        origin: `${lng.toFixed(6)},${lat.toFixed(6)}`,
+        destination: `${target.lng.toFixed(6)},${target.lat.toFixed(6)}`,
+        strategy: "0", extensions: "base", output: "json"
+      });
+      const url = `https://restapi.amap.com/v3/direction/driving?${params.toString()}`;
+      const controller = window.AbortController ? new AbortController() : null;
+      const timeout = controller ? window.setTimeout(() => controller.abort(), 6500) : null;
+      try {
+        const res = await fetch(url, controller ? { signal: controller.signal } : undefined);
+        const data = res.ok ? await res.json() : null;
+        const path = data && data.status === "1" && data.route && data.route.paths && data.route.paths[0];
+        if (!path) return null;
+        const roadKm = Number(path.distance) / 1000;
+        const minutes = Math.max(1, Math.round(Number(path.duration) / 60));
+        if (!Number.isFinite(roadKm) || !Number.isFinite(minutes)) return null;
+        const travel = {
+          straightKm: haversine(lat, lng, target.lat, target.lng), roadKm, factor: 1,
+          speed: roadKm / Math.max(minutes / 60, 0.01), minutes,
+          arrival: new Date(Date.now() + minutes * 60 * 1000), source: "amap"
+        };
+        drivingRouteCache.set(key, travel);
+        return travel;
+      } catch (error) { console.warn("高德驾车路径规划失败", error); return null; }
+      finally { if (timeout) window.clearTimeout(timeout); }
+    }
+    function getEtaForecast(cached, arrival) {
+      if (!cached || !cached.hourly || !cached.hourly.length) return null;
+      return nearestHourly(cached.hourly, arrival.getHours() + arrival.getMinutes() / 60);
+    }
+    function formatKm(km) {
+      if (!Number.isFinite(km)) return "—";
+      return km < 100 ? `${Math.round(km * 10) / 10} km` : `${Math.round(km)} km`;
+    }
+    function formatDuration(minutes) {
+      if (!Number.isFinite(minutes)) return "—";
+      if (minutes < 60) return `${minutes} 分钟`;
+      const h = Math.floor(minutes / 60), m = minutes % 60;
+      return m ? `${h}小时${m}分` : `${h}小时`;
+    }
+    function formatArrivalTime(date) {
+      const hh = String(date.getHours()).padStart(2, "0"), mm = String(date.getMinutes()).padStart(2, "0");
+      const now = new Date();
+      const sameDay = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+      return sameDay ? `${hh}:${mm}` : `${date.getMonth() + 1}月${date.getDate()}日 ${hh}:${mm}`;
+    }
+    function findNearestStop(lat, lng) {
+      let best = null, bestDist = Infinity;
+      allStops.forEach(s => { const d = haversine(lat, lng, s.lat, s.lng); if (d < bestDist) { bestDist = d; best = s; } });
+      return best;
+    }
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+    function handleGeoError(err) {
+      locBtn.textContent = "📍 定位";
+      const msgs = { 1: "定位被拒绝，请在浏览器设置里允许位置权限后重试。", 2: "暂时无法获取位置，请检查设备 GPS 是否开启。", 3: "获取位置超时，请移动到开阔地带再试。" };
+      alert(msgs[err.code] || "定位失败，请稍后重试。");
+    }
+
+    /* ==================== 初始化 ==================== */
+    const locPanel = document.getElementById("locPanel");
+    const locNearest = document.getElementById("locNearest");
+    const locDist = document.getElementById("locDist");
+    const locAcc = document.getElementById("locAcc");
+    const locNextName = document.getElementById("locNextName");
+    const locNextDist = document.getElementById("locNextDist");
+    const locEta = document.getElementById("locEta");
+    const locArrive = document.getElementById("locArrive");
+    const locNextRisk = document.getElementById("locNextRisk");
+    const locUpcoming = document.getElementById("locUpcoming");
+    const locEtaNote = document.getElementById("locEtaNote");
+    const locBtn = document.getElementById("locBtn");
+    const simBtn = document.getElementById("simBtn");
+    const simPanel = document.getElementById("simPanel");
+    const simDay = document.getElementById("simDay");
+    const simStop = document.getElementById("simStop");
+    const applySim = document.getElementById("applySim");
+    const clearSim = document.getElementById("clearSim");
+    const simStatus = document.getElementById("simStatus");
+    const cacheMapBtn = document.getElementById("cacheMapBtn");
+    const mobilePanelToggle = document.getElementById("mobilePanelToggle");
+    const weatherAlertModal = document.getElementById("weatherAlertModal");
+    const weatherAlertList = document.getElementById("weatherAlertList");
+    const closeWeatherAlert = document.getElementById("closeWeatherAlert");
+
+    cacheMapBtn.addEventListener("click", () => {
+      simStatus.textContent = "高德地图底图由官方 CDN 加速分发，自动利用浏览器 HTTP 缓存。此版本无需手动缓存瓦片。";
+    });
+    simBtn.addEventListener("click", () => simPanel.classList.toggle("show"));
+    simDay.addEventListener("change", renderSimStops);
+    applySim.addEventListener("click", applyManualSimulation);
+    clearSim.addEventListener("click", clearManualSimulation);
+    mobilePanelToggle.addEventListener("click", () => {
+      document.body.classList.toggle("panel-open");
+      mobilePanelToggle.textContent = document.body.classList.contains("panel-open") ? "收起" : "行程";
+    });
+    locBtn.addEventListener("click", toggleLocation);
+    closeWeatherAlert.addEventListener("click", () => weatherAlertModal.classList.remove("show"));
+    weatherAlertModal.addEventListener("click", event => {
+      if (event.target === weatherAlertModal) weatherAlertModal.classList.remove("show");
+    });
+    window.setInterval(() => {
+      if (lastPosition) updateNavigationPanel(lastPosition.lat, lastPosition.lng, lastPosition.accuracy);
+    }, WEATHER_REFRESH_INTERVAL);
+    window.selectDay = selectDay;
+    window.focusStop = focusStop;
+    initSimulator();
+
+    /* ==================== 地图初始化（等待 AMap 加载完成） ==================== */
+    amapReady.then(() => {
+      map = new AMap.Map("map", {
+        zoom: 5,
+        center: [83.8, 32.8],
+        mapStyle: "amap://styles/5fc4b0e9f86d1e4d3dc7ce81a16a2454",
+        viewMode: "2D",
+        resizeEnable: true,
+        dragEnable: true,
+        zoomEnable: true,
+        doubleClickZoom: true,
+        scrollWheel: true
+      });
+      infoWindow = new AMap.InfoWindow({
+        offset: new AMap.Pixel(0, -32),
+        autoMove: false,
+        closeWhenClickMap: true
+      });
+      draw(1);
+      // 默认显示全程视野
+      map.setFitView(activePolylines.filter(Boolean), false, [60, 60, 60, 60]);
+    }).catch(error => {
+      document.getElementById("map").innerHTML = `<div style="display:grid;place-items:center;height:100%;padding:24px;text-align:center;color:#b91c1c;background:#fff">${error.message || "高德地图初始化失败"}</div>`;
+    });
+  </script>
+</body>
+</html>

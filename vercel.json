@@ -1,0 +1,18 @@
+{
+  "functions": {
+    "api/moji.py": {
+      "memory": 256
+    }
+  },
+  "rewrites": [
+    { "source": "/", "destination": "/index-amap.html" }
+  ],
+  "headers": [
+    {
+      "source": "/index-amap.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    }
+  ]
+}

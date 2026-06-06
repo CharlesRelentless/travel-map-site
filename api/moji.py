@@ -75,7 +75,9 @@ def call_moji(city_id, api_type):
         },
     )
     try:
-        ctx = ssl._create_unverified_context()
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         with urllib.request.urlopen(req, timeout=12, context=ctx) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
     except Exception:
